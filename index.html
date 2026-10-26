@@ -78,16 +78,21 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .day { padding-block: 18px 8px; }
 .day h2 { font: 700 1.5rem/1 var(--font-display); text-transform: uppercase; letter-spacing: .02em; margin: 0 0 12px; text-wrap: balance; }
 .day h2 small { font: 500 .8rem var(--font-data); color: var(--muted); text-transform: none; letter-spacing: 0; margin-left: 8px; }
-.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
-.studio { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; min-width: 0; overflow: hidden; }
-.studio-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 10px 14px; border-top: 4px solid var(--c); }
-.studio-head b { font: 700 1.05rem var(--font-display); text-transform: uppercase; letter-spacing: .04em; color: var(--c); }
-.studio-head a { font-size: .8rem; color: var(--muted); }
-.studio-head .wk { font-size: .8rem; color: var(--muted); }
-ul { list-style: none; margin: 0; padding: 0; }
-li.cls { display: grid; grid-template-columns: 4.6rem 1fr auto; gap: 10px; align-items: baseline; padding: 9px 14px; border-top: 1px solid var(--line); }
-li.cls.past { opacity: .4; }
+.list { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+details.cls { border-top: 1px solid var(--line); border-left: 4px solid var(--c); }
+details.cls:first-child { border-top: 0; }
+details.cls.past { opacity: .4; }
+summary { list-style: none; display: grid; grid-template-columns: 4.6rem minmax(0, 1fr) auto 1rem; gap: 10px; align-items: baseline; padding: 10px 12px; cursor: pointer; }
+summary::-webkit-details-marker { display: none; }
+summary:focus-visible { outline: 2px solid var(--fg); outline-offset: -2px; }
+.chev { color: var(--muted); text-align: center; }
+.chev::before { content: "\25BE"; display: inline-block; }
+details[open] .chev::before { transform: rotate(180deg); }
+.tag { display: inline-block; font: 700 .62rem var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--panel); background: var(--c); border-radius: 3px; padding: 1px 5px; margin-right: 6px; vertical-align: 2px; }
+.more { padding: 0 12px 12px calc(4.6rem + 22px); color: var(--muted); font-size: .88rem; display: grid; gap: 8px; max-width: 72ch; }
+.more p { margin: 0; }
+.more a { color: var(--c); font-weight: 600; }
+@media (max-width: 480px) { summary { grid-template-columns: 4.1rem minmax(0, 1fr) auto .8rem; gap: 8px; } .more { padding-left: 12px; } }
 .time { font: 500 .85rem var(--font-data); font-variant-numeric: tabular-nums; }
 .what { min-width: 0; }
 .name { font-weight: 600; }
@@ -115,8 +120,8 @@ footer { margin-top: 28px; color: var(--muted); font-size: .8rem; }
 <script>
 const TZ = 'America/New_York';
 const STUDIOS = {
-  embodi: { label: 'EMBODI', color: 'var(--embodi)', book: 'https://www.embodistudios.com/schedule', where: '11 Bow St' },
-  f45: { label: 'F45 East Somerville', color: 'var(--f45)', book: 'https://f45training.com/studio/eastsomerville/#schedule', where: '442 McGrath Hwy' }
+  embodi: { label: 'EMBODI', short: 'EMBODI', color: 'var(--embodi)', book: 'https://www.embodistudios.com/schedule', where: '11 Bow St' },
+  f45: { label: 'F45 East Somerville', short: 'F45', color: 'var(--f45)', book: 'https://f45training.com/studio/eastsomerville/#schedule', where: '442 McGrath Hwy' }
 };
 const KIND = { pilates: '--pilates', strength: '--strength', yoga: '--yoga', 'turn up': '--turnup', cardio: '--cardio', resistance: '--resistance', hybrid: '--hybrid' };
 let show = { embodi: true, f45: true };
@@ -128,6 +133,9 @@ const ymd = d => ymdFmt.format(d);
 const hm = d => new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', minute: '2-digit' }).format(d);
 function addDays(key, n) { const [y, m, d] = key.split('-').map(Number); const t = new Date(Date.UTC(y, m - 1, d + n, 12)); return t.toISOString().slice(0, 10); }
 function label(key, opts) { const [y, m, d] = key.split('-').map(Number); return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', ...opts }).format(new Date(Date.UTC(y, m - 1, d, 12))); }
+const hmParts = new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+function minOf(d) { const p = hmParts.formatToParts(d); return +p.find(x => x.type === 'hour').value * 60 + +p.find(x => x.type === 'minute').value; }
+function plain(html) { if (!html) return ''; const t = new DOMParser().parseFromString(String(html), 'text/html').body.textContent || ''; return t.replace(/\s+/g, ' ').trim(); }
 function fmt12(hhmm) { let [h, m] = hhmm.split(':').map(Number); const ap = h < 12 ? 'AM' : 'PM'; h = h % 12 || 12; return `${h}:${String(m).padStart(2, '0')} ${ap}`; }
 
 async function getEmbodi(start, end) {
@@ -152,7 +160,8 @@ async function getEmbodi(start, end) {
   function toRow(c, d, key) {
     const name = c.name.replace(/^EMBODI\s+/i, '');
     const base = name.split('|')[0].trim(), theme = name.includes('|') ? name.split('|').slice(1).join('|').trim() : '';
-    return { studio: 'embodi', key, sort: d.getTime(), time: hm(d), start: d, name: base, theme, kind: base.toLowerCase(),
+    return { studio: 'embodi', key, min: minOf(d), time: hm(d), start: d, name: base, theme, kind: base.toLowerCase(),
+      desc: plain(c.description || c.descriptionHTML),
       who: c.hostName, mins: c.duration, left: c.max_capacity != null ? c.max_capacity - (c.total_booked || 0) : null };
   }
 }
@@ -166,8 +175,9 @@ async function getF45(start, end) {
     const [dpart, tpart] = c.datetime_start.split(' ');
     if (dpart < start || dpart > end) continue;
     const type = (c.workout_type || day.workout_type || '').trim();
-    out.push({ studio: 'f45', key: dpart, sort: dpart + tpart, time: fmt12(tpart), startLocal: c.datetime_start,
-      name: c.name, theme: '', kind: type.toLowerCase(), chip: type, who: c.trainers_name, mins: +c.duration,
+    const [hh, mm] = tpart.split(':').map(Number);
+    out.push({ studio: 'f45', key: dpart, min: hh * 60 + mm, time: fmt12(tpart), startLocal: c.datetime_start,
+      name: c.name, theme: '', kind: type.toLowerCase(), chip: type, desc: plain(c.description), who: c.trainers_name, mins: +c.duration,
       left: c.size ? (+c.size) - (+c.booked || 0) : null });
   }
   return out;
@@ -176,7 +186,7 @@ async function getF45(start, end) {
 function nowLocalString() { const p = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(new Date()); const g = t => p.find(x => x.type === t).value; return `${g('year')}-${g('month')}-${g('day')} ${g('hour')}:${g('minute')}:${g('second')}`; }
 
 // Reuse the last fetch for 30 minutes so reopening the page doesn't hit the studios again
-const CACHE_KEY = 'ww-cache-v1', CACHE_MS = 30 * 60 * 1000;
+const CACHE_KEY = 'ww-cache-v2', CACHE_MS = 30 * 60 * 1000;
 let state = null;
 async function load(force) {
   const start = ymd(new Date()), end = addDays(start, 6);
@@ -213,26 +223,29 @@ function render() {
       <span class="dow">${i === 0 ? 'Today' : label(d, { weekday: 'short' })}</span><span class="num">${label(d, { day: 'numeric' })}</span><span class="cnt">${count(d)}</span></button>`).join('');
   document.querySelectorAll('.day-btn').forEach(b => b.onclick = () => document.getElementById('d-' + b.dataset.d).scrollIntoView({ block: 'start' }));
 
+  const on = Object.keys(STUDIOS).filter(k => show[k]);
+  const errs = on.filter(k => !state[k]).map(k => { const s = STUDIOS[k]; return `<div class="err">Couldn't reach ${s.label}'s schedule. Try Refresh, or check <a href="${s.book}" target="_blank" rel="noopener">their site</a>.</div>`; }).join('');
   document.getElementById('days').innerHTML = days.map((d, i) => {
-    const cols = Object.entries(STUDIOS).filter(([k]) => show[k]).map(([k, s]) => {
-      let body;
-      if (!state[k]) body = `<div class="err">Couldn't reach ${s.label}'s schedule. Try Refresh, or check <a href="${s.book}" target="_blank" rel="noopener">their site</a>.</div>`;
-      else {
-        const rows = state[k].filter(r => r.key === d).sort((a, b) => a.sort < b.sort ? -1 : 1);
-        body = rows.length ? `<ul>${rows.map(r => {
-          const kv = KIND[r.kind] || KIND[(r.kind.match(/pilates|strength|yoga|turn up/) || [])[0]] || '--muted';
-          const chip = r.studio === 'f45' ? `<span class="chip" style="--k:var(${kv})">${esc(r.chip)}</span>` : '';
-          const name = r.studio === 'embodi' ? `<span style="color:var(${kv})">${esc(r.name)}</span>` : esc(r.name);
-          const meta = [r.who, r.mins && r.mins !== 45 ? r.mins + ' min' : '', r.theme, r.extra].filter(Boolean).map(esc).join(' · ');
-          const left = r.left == null ? '' : r.left <= 0 ? 'Full' : `${r.left} left`;
-          return `<li class="cls${isPast(r) ? ' past' : ''}"><span class="time">${r.time}</span><span class="what"><span class="name">${name}</span>${chip}<br><span class="who">${meta}</span></span><span class="spots${r.left != null && r.left <= 3 ? ' low' : ''}">${left}</span></li>`;
-        }).join('')}</ul>` : `<div class="empty">${i === 0 ? 'Nothing left today' : 'No classes'}</div>`;
-      }
-      const f45Workout = k === 'f45' && state.f45 ? [...new Set(state.f45.filter(r => r.key === d).map(r => r.name))].join(', ') : '';
-      return `<section class="studio" style="--c:${s.color}"><div class="studio-head"><b>${s.label}</b>${f45Workout ? `<span class="wk">${esc(f45Workout)}</span>` : ''}<a href="${s.book}" target="_blank" rel="noopener">Book</a></div>${body}</section>`;
-    }).join('');
-    return `<section class="day" id="d-${d}"><h2>${i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : label(d, { weekday: 'long' })}<small>${label(d, { weekday: 'short', month: 'short', day: 'numeric' })}</small></h2><div class="cols">${cols || '<div class="empty">Turn on a studio above.</div>'}</div></section>`;
+    const rows = on.filter(k => state[k]).flatMap(k => state[k].filter(r => r.key === d))
+      .sort((a, b) => a.min - b.min || (a.studio < b.studio ? -1 : 1));
+    const empty = !on.length ? 'Turn on a studio above.' : i === 0 ? 'Nothing left today' : 'No classes';
+    const body = rows.length ? `<div class="list">${rows.map(row).join('')}</div>` : `<div class="list"><div class="empty">${empty}</div></div>`;
+    return `<section class="day" id="d-${d}"><h2>${i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : label(d, { weekday: 'long' })}<small>${label(d, { weekday: 'short', month: 'short', day: 'numeric' })}</small></h2>${i === 0 ? errs : ''}${body}</section>`;
   }).join('');
+}
+
+function row(r) {
+  const s = STUDIOS[r.studio];
+  const kv = KIND[r.kind] || KIND[(r.kind.match(/pilates|strength|yoga|turn up/) || [])[0]] || '--muted';
+  const chip = r.chip ? `<span class="chip" style="--k:var(${kv})">${esc(r.chip)}</span>` : '';
+  const name = r.studio === 'embodi' ? `<span style="color:var(${kv})">${esc(r.name)}</span>` : esc(r.name);
+  const meta = [r.who, r.mins && r.mins !== 45 ? r.mins + ' min' : '', r.theme, r.extra].filter(Boolean).map(esc).join(' · ');
+  const left = r.left == null ? '' : r.left <= 0 ? 'Full' : `${r.left} left`;
+  return `<details class="cls${isPast(r) ? ' past' : ''}" style="--c:${s.color}"><summary>`
+    + `<span class="time">${r.time}</span>`
+    + `<span class="what"><span class="tag">${s.short}</span><span class="name">${name}</span>${chip}<br><span class="who">${meta}</span></span>`
+    + `<span class="spots${r.left != null && r.left <= 3 ? ' low' : ''}">${left}</span><span class="chev" aria-hidden="true"></span></summary>`
+    + `<div class="more">${r.desc ? `<p>${esc(r.desc)}</p>` : '<p>No description from the studio.</p>'}<a href="${s.book}" target="_blank" rel="noopener">Book at ${s.label}</a></div></details>`;
 }
 
 document.getElementById('refresh').onclick = () => load(true);
