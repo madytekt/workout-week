@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Somerville Workout Week</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: a sticky day strip on top; each day is a two-column board, EMBODI left, F45 right, stacking on phones. */
+:root {
+  --bg: #f3f4f1;
+  --panel: #ffffff;
+  --fg: #1c211e;
+  --muted: #646d68;
+  --line: #dde1dc;
+  --embodi: #3f5f8a;
+  --f45: #c8105c;
+  --pilates: #3f5f8a; --strength: #8a4f2b; --yoga: #4f7a52; --turnup: #8b3fa0;
+  --cardio: #c8105c; --resistance: #2f5f9e; --hybrid: #a0661a;
+  --low: #b3261e;
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, sans-serif;
+  --font-data: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121513; --panel: #1b1f1d; --fg: #e8ebe8; --muted: #9aa39e; --line: #2c322f;
+    --embodi: #8fb1df; --f45: #ff6fa6;
+    --pilates: #8fb1df; --strength: #e0a47c; --yoga: #9cc79f; --turnup: #d39be3;
+    --cardio: #ff6fa6; --resistance: #8db4ec; --hybrid: #e5b45f; --low: #ff8a80;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121513; --panel: #1b1f1d; --fg: #e8ebe8; --muted: #9aa39e; --line: #2c322f;
+  --embodi: #8fb1df; --f45: #ff6fa6;
+  --pilates: #8fb1df; --strength: #e0a47c; --yoga: #9cc79f; --turnup: #d39be3;
+  --cardio: #ff6fa6; --resistance: #8db4ec; --hybrid: #e5b45f; --low: #ff8a80;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--fg);
+  font: 15px/1.45 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+}
+.wrap { max-width: 980px; margin: 0 auto; }
+header { padding-block: 28px 12px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between; }
+h1 { font: 700 2.2rem/1 var(--font-display); letter-spacing: .01em; text-transform: uppercase; margin: 0; }
+.status { font: 500 .75rem var(--font-data); color: var(--muted); display: flex; gap: 10px; align-items: center; }
+button { font: inherit; color: inherit; cursor: pointer; }
+.refresh { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 4px 10px; }
+.refresh:focus-visible, .day-btn:focus-visible, .filter:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+
+.strip {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--bg); padding-block: 8px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+  border-bottom: 1px solid var(--line);
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.day-btn { border: 0; background: transparent; border-radius: 8px; padding: 6px 2px; display: grid; gap: 2px; justify-items: center; }
+.day-btn .dow { font: 600 .7rem var(--font-body); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.day-btn .num { font: 700 1.35rem/1 var(--font-display); }
+.day-btn .cnt { font: 500 .65rem var(--font-data); color: var(--muted); }
+.day-btn[aria-current="true"] { background: var(--fg); color: var(--bg); }
+.day-btn[aria-current="true"] .dow, .day-btn[aria-current="true"] .cnt { color: var(--bg); opacity: .8; }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; padding-block: 12px 4px; }
+.filter { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 4px 12px; font-size: .85rem; }
+.filter[aria-pressed="false"] { opacity: .45; text-decoration: line-through; }
+
+.day { padding-block: 18px 8px; }
+.day h2 { font: 700 1.5rem/1 var(--font-display); text-transform: uppercase; letter-spacing: .02em; margin: 0 0 12px; text-wrap: balance; }
+.day h2 small { font: 500 .8rem var(--font-data); color: var(--muted); text-transform: none; letter-spacing: 0; margin-left: 8px; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
+.studio { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; min-width: 0; overflow: hidden; }
+.studio-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 10px 14px; border-top: 4px solid var(--c); }
+.studio-head b { font: 700 1.05rem var(--font-display); text-transform: uppercase; letter-spacing: .04em; color: var(--c); }
+.studio-head a { font-size: .8rem; color: var(--muted); }
+.studio-head .wk { font-size: .8rem; color: var(--muted); }
+ul { list-style: none; margin: 0; padding: 0; }
+li.cls { display: grid; grid-template-columns: 4.6rem 1fr auto; gap: 10px; align-items: baseline; padding: 9px 14px; border-top: 1px solid var(--line); }
+li.cls.past { opacity: .4; }
+.time { font: 500 .85rem var(--font-data); font-variant-numeric: tabular-nums; }
+.what { min-width: 0; }
+.name { font-weight: 600; }
+.chip { display: inline-block; font: 600 .65rem var(--font-body); text-transform: uppercase; letter-spacing: .07em; color: var(--k); border: 1px solid var(--k); border-radius: 4px; padding: 0 5px; margin-left: 6px; vertical-align: 2px; }
+.who { color: var(--muted); font-size: .85rem; }
+.spots { font: 500 .75rem var(--font-data); color: var(--muted); text-align: right; white-space: nowrap; }
+.spots.low { color: var(--low); }
+.empty, .err { padding: 14px; color: var(--muted); font-size: .9rem; }
+.err { color: var(--low); }
+footer { margin-top: 28px; color: var(--muted); font-size: .8rem; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Workout Week</h1>
+    <div class="status"><span id="updated">Loading…</span><button class="refresh" id="refresh" type="button">Refresh</button></div>
+  </header>
+  <nav class="strip" id="strip" aria-label="Days"></nav>
+  <div class="filters" id="filters" aria-label="Studios"></div>
+  <main id="days"></main>
+  <footer>Live from each studio's booking system, refreshed when you open the page (at most every 30 minutes; Refresh forces it). Spots = open places at that time. Times are Eastern.</footer>
+</div>
+<script>
+const TZ = 'America/New_York';
+const STUDIOS = {
+  embodi: { label: 'EMBODI', color: 'var(--embodi)', book: 'https://www.embodistudios.com/schedule', where: '11 Bow St' },
+  f45: { label: 'F45 East Somerville', color: 'var(--f45)', book: 'https://f45training.com/studio/eastsomerville/#schedule', where: '442 McGrath Hwy' }
+};
+const KIND = { pilates: '--pilates', strength: '--strength', yoga: '--yoga', 'turn up': '--turnup', cardio: '--cardio', resistance: '--resistance', hybrid: '--hybrid' };
+let show = { embodi: true, f45: true };
+try { const s = JSON.parse(localStorage.getItem('ww-show')); if (s) show = { ...show, ...s }; } catch (e) {}
+
+// Date helpers, all in studio time
+const ymdFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
+const ymd = d => ymdFmt.format(d);
+const hm = d => new Intl.DateTimeFormat('en-US', { timeZone: TZ, hour: 'numeric', minute: '2-digit' }).format(d);
+function addDays(key, n) { const [y, m, d] = key.split('-').map(Number); const t = new Date(Date.UTC(y, m - 1, d + n, 12)); return t.toISOString().slice(0, 10); }
+function label(key, opts) { const [y, m, d] = key.split('-').map(Number); return new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', ...opts }).format(new Date(Date.UTC(y, m - 1, d, 12))); }
+function fmt12(hhmm) { let [h, m] = hhmm.split(':').map(Number); const ap = h < 12 ? 'AM' : 'PM'; h = h % 12 || 12; return `${h}:${String(m).padStart(2, '0')} ${ap}`; }
+
+async function getEmbodi(start, end) {
+  // Wide UTC window, then keep classes whose Eastern date is in range
+  const s = new Date(start + 'T00:00:00Z'); s.setUTCHours(-12);
+  const e = new Date(addDays(end, 1) + 'T12:00:00Z');
+  const url = 'https://widget-api-tkaeguucxq-uc.a.run.app/qCnXP00ChKU0na74aC8ebZdYuXa2/schedule'
+    + `?startDateTime=${s.toISOString()}&endDateTime=${e.toISOString()}&timezone=${encodeURIComponent(TZ)}`;
+  const j = await (await fetch(url)).json();
+  const merged = new Map();
+  for (const c of (j.data && j.data.classes) || []) {
+    if (c.canceled || c.display !== 'public') continue;
+    const d = new Date(c.start_time * 1000), key = ymd(d);
+    if (key < start || key > end) continue;
+    const id = c.start_time + '|' + c.name + '|' + c.hostName;
+    const live = c.location_type === 'live';
+    const prev = merged.get(id);
+    if (prev) { if (live) prev.extra = 'also livestream'; else { Object.assign(prev, toRow(c, d, key)); prev.extra = 'also livestream'; } continue; }
+    const row = toRow(c, d, key); if (live) row.extra = 'livestream only'; merged.set(id, row);
+  }
+  return [...merged.values()];
+  function toRow(c, d, key) {
+    const name = c.name.replace(/^EMBODI\s+/i, '');
+    const base = name.split('|')[0].trim(), theme = name.includes('|') ? name.split('|').slice(1).join('|').trim() : '';
+    return { studio: 'embodi', key, sort: d.getTime(), time: hm(d), start: d, name: base, theme, kind: base.toLowerCase(),
+      who: c.hostName, mins: c.duration, left: c.max_capacity != null ? c.max_capacity - (c.total_booked || 0) : null };
+  }
+}
+
+async function getF45(start, end) {
+  const url = `https://booking.api.f45training.com/v2/schedule/classes?from=${start}&to=${end}&studio_id=4563&service_category_code=training`;
+  const j = await (await fetch(url)).json();
+  const out = [];
+  for (const day of (j.data && j.data.schedule) || []) for (const c of day.classes || []) {
+    if (c.status && c.status !== 'active') continue;
+    const [dpart, tpart] = c.datetime_start.split(' ');
+    if (dpart < start || dpart > end) continue;
+    const type = (c.workout_type || day.workout_type || '').trim();
+    out.push({ studio: 'f45', key: dpart, sort: dpart + tpart, time: fmt12(tpart), startLocal: c.datetime_start,
+      name: c.name, theme: '', kind: type.toLowerCase(), chip: type, who: c.trainers_name, mins: +c.duration,
+      left: c.size ? (+c.size) - (+c.booked || 0) : null });
+  }
+  return out;
+}
+
+function nowLocalString() { const p = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(new Date()); const g = t => p.find(x => x.type === t).value; return `${g('year')}-${g('month')}-${g('day')} ${g('hour')}:${g('minute')}:${g('second')}`; }
+
+// Reuse the last fetch for 30 minutes so reopening the page doesn't hit the studios again
+const CACHE_KEY = 'ww-cache-v1', CACHE_MS = 30 * 60 * 1000;
+let state = null;
+async function load(force) {
+  const start = ymd(new Date()), end = addDays(start, 6);
+  if (!force) {
+    try {
+      const c = JSON.parse(localStorage.getItem(CACHE_KEY));
+      if (c && c.start === start && Date.now() - c.at < CACHE_MS) {
+        c.embodi && c.embodi.forEach(r => r.start = new Date(r.start));
+        state = c; document.getElementById('updated').textContent = 'Updated ' + hm(new Date(c.at)); render(); return;
+      }
+    } catch (e) {}
+  }
+  document.getElementById('updated').textContent = 'Loading…';
+  const [e, f] = await Promise.allSettled([getEmbodi(start, end), getF45(start, end)]);
+  state = { start, at: Date.now(), days: [...Array(7)].map((_, i) => addDays(start, i)),
+    embodi: e.status === 'fulfilled' ? e.value : null, f45: f.status === 'fulfilled' ? f.value : null };
+  if (state.embodi && state.f45) { try { localStorage.setItem(CACHE_KEY, JSON.stringify(state)); } catch (e) {} }
+  document.getElementById('updated').textContent = 'Updated ' + hm(new Date(state.at));
+  render();
+}
+
+function isPast(r) { return r.studio === 'embodi' ? r.start.getTime() < Date.now() : r.startLocal < nowLocalString(); }
+
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch])); }
+
+function render() {
+  const { days } = state;
+  const filters = document.getElementById('filters');
+  filters.innerHTML = Object.entries(STUDIOS).map(([k, s]) => `<button type="button" class="filter" id="f-${k}" data-k="${k}" aria-pressed="${show[k]}" style="border-color:${s.color}">${s.label}</button>`).join('');
+  filters.querySelectorAll('.filter').forEach(b => b.onclick = () => { show[b.dataset.k] = !show[b.dataset.k]; try { localStorage.setItem('ww-show', JSON.stringify(show)); } catch (e) {} render(); });
+
+  const count = key => ['embodi', 'f45'].filter(k => show[k] && state[k]).reduce((n, k) => n + state[k].filter(r => r.key === key && !isPast(r)).length, 0);
+  document.getElementById('strip').innerHTML = days.map((d, i) => `<button type="button" class="day-btn" id="b-${d}" data-d="${d}" aria-current="${i === 0}">
+      <span class="dow">${i === 0 ? 'Today' : label(d, { weekday: 'short' })}</span><span class="num">${label(d, { day: 'numeric' })}</span><span class="cnt">${count(d)}</span></button>`).join('');
+  document.querySelectorAll('.day-btn').forEach(b => b.onclick = () => document.getElementById('d-' + b.dataset.d).scrollIntoView({ block: 'start' }));
+
+  document.getElementById('days').innerHTML = days.map((d, i) => {
+    const cols = Object.entries(STUDIOS).filter(([k]) => show[k]).map(([k, s]) => {
+      let body;
+      if (!state[k]) body = `<div class="err">Couldn't reach ${s.label}'s schedule. Try Refresh, or check <a href="${s.book}" target="_blank" rel="noopener">their site</a>.</div>`;
+      else {
+        const rows = state[k].filter(r => r.key === d).sort((a, b) => a.sort < b.sort ? -1 : 1);
+        body = rows.length ? `<ul>${rows.map(r => {
+          const kv = KIND[r.kind] || KIND[(r.kind.match(/pilates|strength|yoga|turn up/) || [])[0]] || '--muted';
+          const chip = r.studio === 'f45' ? `<span class="chip" style="--k:var(${kv})">${esc(r.chip)}</span>` : '';
+          const name = r.studio === 'embodi' ? `<span style="color:var(${kv})">${esc(r.name)}</span>` : esc(r.name);
+          const meta = [r.who, r.mins && r.mins !== 45 ? r.mins + ' min' : '', r.theme, r.extra].filter(Boolean).map(esc).join(' · ');
+          const left = r.left == null ? '' : r.left <= 0 ? 'Full' : `${r.left} left`;
+          return `<li class="cls${isPast(r) ? ' past' : ''}"><span class="time">${r.time}</span><span class="what"><span class="name">${name}</span>${chip}<br><span class="who">${meta}</span></span><span class="spots${r.left != null && r.left <= 3 ? ' low' : ''}">${left}</span></li>`;
+        }).join('')}</ul>` : `<div class="empty">${i === 0 ? 'Nothing left today' : 'No classes'}</div>`;
+      }
+      const f45Workout = k === 'f45' && state.f45 ? [...new Set(state.f45.filter(r => r.key === d).map(r => r.name))].join(', ') : '';
+      return `<section class="studio" style="--c:${s.color}"><div class="studio-head"><b>${s.label}</b>${f45Workout ? `<span class="wk">${esc(f45Workout)}</span>` : ''}<a href="${s.book}" target="_blank" rel="noopener">Book</a></div>${body}</section>`;
+    }).join('');
+    return `<section class="day" id="d-${d}"><h2>${i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : label(d, { weekday: 'long' })}<small>${label(d, { weekday: 'short', month: 'short', day: 'numeric' })}</small></h2><div class="cols">${cols || '<div class="empty">Turn on a studio above.</div>'}</div></section>`;
+  }).join('');
+}
+
+document.getElementById('refresh').onclick = () => load(true);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && state && ymd(new Date()) !== state.start) load(); });
+load();
+</script>
+</body>
+</html>
